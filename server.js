@@ -16,7 +16,7 @@ app.use(express.json());
 // ROOT ROUTE
 // -------------------------------
 app.get("/", (req, res) => {
-  res.send("🔥 CashLock Backend is Running Successfully! 🚀");
+  res.send("CashLock backend is running!");
 });
 
 // -------------------------------
@@ -130,7 +130,7 @@ app.post("/momo/callback", async (req, res) => {
     console.log("📥 MTN CALLBACK RECEIVED:");
     console.log(req.body);
 
-    // Normally you will save to DB here later
+    // Later: save to DB, update lock plan, notify user
 
     res.status(200).send("Callback received");
   } catch (err) {
