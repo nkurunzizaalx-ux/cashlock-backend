@@ -66,10 +66,15 @@ app.post("/momo/collect", async (req, res) => {
 
     const { amount, phone, externalId } = req.body;
 
+<<<<<<< HEAD
     // Unique reference for each transaction
     const referenceId = uuidv4();
 
     // 1️⃣ Generate token
+=======
+    const referenceId = uuidv4();
+
+>>>>>>> 25f7807e71284feda2a5c1940539d90469e3e440
     const tokenResponse = await axios({
       method: "post",
       url: "https://sandbox.momodeveloper.mtn.com/collection/token/",
@@ -85,7 +90,10 @@ app.post("/momo/collect", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
+<<<<<<< HEAD
     // 2️⃣ Request to pay
+=======
+>>>>>>> 25f7807e71284feda2a5c1940539d90469e3e440
     await axios({
       method: "post",
       url: "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
@@ -110,7 +118,10 @@ app.post("/momo/collect", async (req, res) => {
       },
     });
 
+<<<<<<< HEAD
     // 3️⃣ Response to app
+=======
+>>>>>>> 25f7807e71284feda2a5c1940539d90469e3e440
     res.json({
       status: "pending",
       referenceId,
@@ -130,6 +141,7 @@ app.post("/momo/callback", async (req, res) => {
     console.log("📥 MTN CALLBACK RECEIVED:");
     console.log(req.body);
 
+<<<<<<< HEAD
     // Example:
     // {
     //   status: "SUCCESSFUL" | "FAILED" | ...
@@ -143,6 +155,8 @@ app.post("/momo/callback", async (req, res) => {
     // Update user lock plan
     // Notify the user
 
+=======
+>>>>>>> 25f7807e71284feda2a5c1940539d90469e3e440
     res.status(200).send("Callback received");
   } catch (err) {
     console.error("Callback Error:", err.message);
@@ -153,7 +167,11 @@ app.post("/momo/callback", async (req, res) => {
 // -------------------------------
 // START SERVER
 // -------------------------------
+<<<<<<< HEAD
 const PORT = process.env.PORT || 3000;
+=======
+const PORT = process.env.PORT || 10000;
+>>>>>>> 25f7807e71284feda2a5c1940539d90469e3e440
 app.listen(PORT, () => {
   console.log(`🚀 CashLock backend running on port ${PORT}`);
 });
