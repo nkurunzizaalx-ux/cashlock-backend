@@ -37,14 +37,16 @@ app.post("/momo/token", async (req, res) => {
 
     const auth = Buffer.from(`${user}:${apiKey}`).toString("base64");
 
-    const response = await axios({
-      method: "post",
-      url: "https://sandbox.momodeveloper.mtn.com/collection/token/",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Ocp-Apim-Subscription-Key": subscriptionKey,
-      },
-    });
+    const response = await axios.post(
+      "https://sandbox.momodeveloper.mtn.com/collection/token/",
+      {},
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Ocp-Apim-Subscription-Key": subscriptionKey,
+        },
+      }
+    );
 
     res.json({
       access_token: response.data.access_token,
@@ -63,41 +65,32 @@ app.post("/momo/collect", async (req, res) => {
   try {
     const subscriptionKey = process.env.MTN_SUBSCRIPTION_KEY;
     const callbackUrl = process.env.MTN_CALLBACK_URL;
-
     const { amount, phone, externalId } = req.body;
 
-    // Unique reference for each transaction
     const referenceId = uuidv4();
 
     // 1️⃣ Generate token
-    const tokenResponse = await axios({
-      method: "post",
-      url: "https://sandbox.momodeveloper.mtn.com/collection/token/",
-      headers: {
-        Authorization:
-          "Basic " +
-          Buffer.from(
-            `${process.env.MTN_API_USER}:${process.env.MTN_API_KEY}`
-          ).toString("base64"),
-        "Ocp-Apim-Subscription-Key": subscriptionKey,
-      },
-    });
+    const tokenResponse = await axios.post(
+      "https://sandbox.momodeveloper.mtn.com/collection/token/",
+      {},
+      {
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              `${process.env.MTN_API_USER}:${process.env.MTN_API_KEY}`
+            ).toString("base64"),
+          "Ocp-Apim-Subscription-Key": subscriptionKey,
+        },
+      }
+    );
 
     const accessToken = tokenResponse.data.access_token;
 
     // 2️⃣ Request to pay
-    await axios({
-      method: "post",
-      url: "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "X-Reference-Id": referenceId,
-        "X-Target-Environment": "sandbox",
-        "Ocp-Apim-Subscription-Key": subscriptionKey,
-        "Content-Type": "application/json",
-        "X-Callback-Url": callbackUrl,
-      },
-      data: {
+    await axios.post(
+      "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
+      {
         amount: amount,
         currency: "EUR",
         externalId: externalId || "cashlock-payment",
@@ -108,9 +101,19 @@ app.post("/momo/collect", async (req, res) => {
         payerMessage: "CashLock payment",
         payeeNote: "CashLock lock plan",
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Reference-Id": referenceId,
+          "X-Target-Environment": "sandbox",
+          "Ocp-Apim-Subscription-Key": subscriptionKey,
+          "Content-Type": "application/json",
+          "X-Callback-Url": callbackUrl,
+        },
+      }
+    );
 
-    // 3️⃣ Response to app
+    // 3️⃣ Response
     res.json({
       status: "pending",
       referenceId,
@@ -130,8 +133,6 @@ app.post("/momo/callback", async (req, res) => {
     console.log("📥 MTN CALLBACK RECEIVED:");
     console.log(req.body);
 
-    // Later: save to DB, update lock plan, notify user
-
     res.status(200).send("Callback received");
   } catch (err) {
     console.error("Callback Error:", err.message);
@@ -140,9 +141,9 @@ app.post("/momo/callback", async (req, res) => {
 });
 
 // -------------------------------
-// START SERVER
+// START SERVER (Render requires process.env.PORT)
 // -------------------------------
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT; // Required by Render
 
 app.listen(PORT, () => {
   console.log(`🚀 CashLock backend running on port ${PORT}`);
