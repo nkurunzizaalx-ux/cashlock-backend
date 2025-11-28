@@ -27,6 +27,18 @@ app.get("/api/test", (req, res) => {
 });
 
 // -------------------------------
+// DEBUG ROUTE - CHECK ENV VALUES
+// -------------------------------
+app.get("/debug-env", (req, res) => {
+  res.json({
+    MTN_API_USER: process.env.MTN_API_USER || "EMPTY",
+    MTN_API_KEY: process.env.MTN_API_KEY || "EMPTY",
+    MTN_SUBSCRIPTION_KEY: process.env.MTN_SUBSCRIPTION_KEY || "EMPTY",
+    MTN_CALLBACK_URL: process.env.MTN_CALLBACK_URL || "EMPTY",
+  });
+});
+
+// -------------------------------
 // MTN TOKEN GENERATION
 // -------------------------------
 app.post("/momo/token", async (req, res) => {
@@ -113,7 +125,6 @@ app.post("/momo/collect", async (req, res) => {
       }
     );
 
-    // 3️⃣ Response
     res.json({
       status: "pending",
       referenceId,
@@ -143,7 +154,7 @@ app.post("/momo/callback", async (req, res) => {
 // -------------------------------
 // START SERVER (Render requires process.env.PORT)
 // -------------------------------
-const PORT = process.env.PORT; // Required by Render
+const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
   console.log(`🚀 CashLock backend running on port ${PORT}`);
