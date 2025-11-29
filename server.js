@@ -17,14 +17,14 @@ app.use(express.json());
 // -------------------------------
 // MONGODB CONNECTION
 // -------------------------------
+// -------------------------------
+// MONGODB CONNECTION (NEW SYNTAX)
+// -------------------------------
 if (!process.env.MONGODB_URI) {
   console.error("❌ Missing MONGODB_URI in environment variables");
 } else {
   mongoose
-    .connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
+    .connect(process.env.MONGODB_URI)
     .then(() => console.log("✅ MongoDB connected successfully"))
     .catch((err) => console.error("❌ MongoDB connection error:", err));
 }
