@@ -1,6 +1,10 @@
 const Wallet = require("../models/Wallet");
 const Transaction = require("../models/Transaction");
 
+
+// ------------------------------------------------------
+// MANUAL DEPOSIT (Admin, Testing, Bonus)
+// ------------------------------------------------------
 exports.manualDeposit = async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -30,6 +34,7 @@ exports.manualDeposit = async (req, res) => {
 
     // Update balance
     wallet.balance += amount;
+    wallet.updated_at = new Date();
     await wallet.save();
 
     // Log transaction
@@ -50,6 +55,80 @@ exports.manualDeposit = async (req, res) => {
 
   } catch (error) {
     console.error("Deposit Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+
+// ------------------------------------------------------
+// GET USER WALLET BALANCE
+// ------------------------------------------------------
+exports.getBalance = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    const wallet = await Wallet.findOne({ userId });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      balance: wallet.balance,
+    });
+
+  } catch (error) {
+    console.error("Get Balance Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+
+// ------------------------------------------------------
+// GET ALL USER TRANSACTIONS
+// ------------------------------------------------------
+exports.getTransactions = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    // Fetch transactions for user
+    const transactions = await Transaction.find({ userId })
+      .sort({ created_at: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: transactions.length,
+      transactions,
+    });
+
+  } catch (error) {
+    console.error("Get Transactions Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",

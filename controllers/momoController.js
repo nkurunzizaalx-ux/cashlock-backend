@@ -4,9 +4,24 @@ const { v4: uuidv4 } = require("uuid");
 const Transaction = require("../models/Transaction");
 const Wallet = require("../models/Wallet");
 
-// ─────────────────────────────────────────────
-// INTERNAL: GET MTN ACCESS TOKEN
-// ─────────────────────────────────────────────
+
+// ------------------------------------------------------
+// NORMALIZE PHONE (Rwanda standard)
+// ------------------------------------------------------
+function normalizePhone(phone) {
+  if (!phone) return "";
+  phone = phone.toString().replace(/\s+/g, "");
+
+  if (phone.startsWith("+250")) phone = phone.replace("+250", "250");
+  if (phone.startsWith("07")) phone = "250" + phone;
+
+  return phone;
+}
+
+
+// ------------------------------------------------------
+// INTERNAL – GET MTN ACCESS TOKEN
+// ------------------------------------------------------
 async function getAccessToken() {
   const user = process.env.MTN_API_USER;
   const apiKey = process.env.MTN_API_KEY;
@@ -32,10 +47,10 @@ async function getAccessToken() {
   return response.data.access_token;
 }
 
-// ─────────────────────────────────────────────
-// OPTIONAL: SIMPLE TOKEN ENDPOINT (FOR TESTING)
-// POST /momo/token
-// ─────────────────────────────────────────────
+
+// ------------------------------------------------------
+// OPTIONAL: /momo/token – GET TOKEN (debug & testing)
+// ------------------------------------------------------
 exports.getToken = async (req, res) => {
   try {
     const token = await getAccessToken();
@@ -49,15 +64,19 @@ exports.getToken = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// MAIN: INITIATE DEPOSIT (REQUEST TO PAY)
-// POST /momo/collect
-// Body: { userId, phone, amount }
-// ─────────────────────────────────────────────
+
+
+// ------------------------------------------------------
+// MAIN: REQUEST TO PAY (Deposit → MoMo)
+// ------------------------------------------------------
 exports.requestToPay = async (req, res) => {
   try {
-    const { userId, phone, amount } = req.body;
+    let { userId, phone, amount } = req.body;
 
+    // Normalize phone
+    phone = normalizePhone(phone);
+
+    // BASIC VALIDATION
     if (!userId || !phone || !amount) {
       return res.status(400).json({
         success: false,
@@ -82,11 +101,11 @@ exports.requestToPay = async (req, res) => {
       });
     }
 
-    // 1️⃣ Generate Reference ID
+    // 1️⃣ Generate metadata
     const referenceId = uuidv4();
-    const currency = "EUR"; // MTN sandbox expects EUR; in production you will change to "RWF"
+    const currency = "EUR"; // Sandbox requirement
 
-    // 2️⃣ Create pending transaction in DB
+    // 2️⃣ Create pending transaction
     const transaction = await Transaction.create({
       userId,
       type: "deposit",
@@ -96,16 +115,16 @@ exports.requestToPay = async (req, res) => {
       momo_status: "PENDING",
     });
 
-    // 3️⃣ Get access token
+    // 3️⃣ Generate MTN Access Token
     const accessToken = await getAccessToken();
 
-    // 4️⃣ Call MTN RequestToPay
+    // 4️⃣ Send RequestToPay
     await axios.post(
       "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
       {
         amount: String(amount),
         currency,
-        externalId: transaction._id.toString(), // you can track by transactionId
+        externalId: transaction._id.toString(),
         payer: {
           partyIdType: "MSISDN",
           partyId: phone,
@@ -119,13 +138,13 @@ exports.requestToPay = async (req, res) => {
           "X-Reference-Id": referenceId,
           "X-Target-Environment": "sandbox",
           "Ocp-Apim-Subscription-Key": subscriptionKey,
-          "Content-Type": "application/json",
           "X-Callback-Url": callbackUrl,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    // 5️⃣ Return pending status to app
+    // 5️⃣ Response to App
     return res.status(202).json({
       success: true,
       status: "PENDING",
@@ -133,6 +152,7 @@ exports.requestToPay = async (req, res) => {
       referenceId,
       transactionId: transaction._id,
     });
+
   } catch (err) {
     console.error("MoMo RequestToPay Error:", err.response?.data || err.message);
     return res.status(500).json({
@@ -142,14 +162,16 @@ exports.requestToPay = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// CALLBACK: MTN NOTIFIES RESULT
-// POST /momo/callback  (Configured in MTN portal)
-// ─────────────────────────────────────────────
+
+
+// ------------------------------------------------------
+// CALLBACK: MTN → CashLock (CONFIRM PAYMENT)
+// ------------------------------------------------------
 exports.handleCallback = async (req, res) => {
   try {
     console.log("📥 MTN CALLBACK RECEIVED:", req.body);
 
+    // Extract reference ID
     const referenceId =
       req.headers["x-reference-id"] ||
       req.body.referenceId ||
@@ -163,7 +185,7 @@ exports.handleCallback = async (req, res) => {
       return res.status(400).send("Missing referenceId");
     }
 
-    // 1️⃣ Find transaction by referenceId
+    // 1️⃣ Find transaction
     const tx = await Transaction.findOne({ referenceId });
 
     if (!tx) {
@@ -175,7 +197,7 @@ exports.handleCallback = async (req, res) => {
     tx.momo_status = status;
     await tx.save();
 
-    // 3️⃣ If payment SUCCESSFUL → credit wallet
+    // 3️⃣ On SUCCESS → credit wallet
     if (status === "SUCCESSFUL" || status === "SUCCESS") {
       const wallet = await Wallet.findOne({ userId: tx.userId });
 
@@ -186,13 +208,14 @@ exports.handleCallback = async (req, res) => {
           `✅ Wallet credited: userId=${tx.userId}, amount=${tx.amount}`
         );
       } else {
-        console.error("Wallet not found for user:", tx.userId);
+        console.error("❌ Wallet not found for user:", tx.userId);
       }
     } else {
-      console.log("Payment not successful, status:", status);
+      console.log("❗ Payment not successful:", status);
     }
 
     return res.status(200).send("Callback processed");
+
   } catch (err) {
     console.error("MoMo Callback Error:", err.message);
     return res.status(500).send("Callback processing error");

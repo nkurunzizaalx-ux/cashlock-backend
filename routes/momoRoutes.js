@@ -3,13 +3,21 @@ const express = require("express");
 const router = express.Router();
 const momoController = require("../controllers/momoController");
 
-// Get token (optional / for testing)
+// ------------------------------------------------------
+// GET MTN ACCESS TOKEN (Optional - Debug/Test)
+// ------------------------------------------------------
 router.post("/token", momoController.getToken);
 
-// Initiate deposit (RequestToPay)
+// ------------------------------------------------------
+// INITIATE REQUEST TO PAY (Deposit via MoMo)
+// POST /momo/collect
+// ------------------------------------------------------
 router.post("/collect", momoController.requestToPay);
 
-// MTN callback
+// ------------------------------------------------------
+// MTN CALLBACK ENDPOINT (You set this in MTN portal)
+// POST /momo/callback
+// ------------------------------------------------------
 router.post("/callback", momoController.handleCallback);
 
 module.exports = router;
