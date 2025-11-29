@@ -10,13 +10,15 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));   // ✅ Important for Render
 
 // -------------------------------
 // ROUTES IMPORTS
 // -------------------------------
 const authRoutes = require("./routes/authRoutes");
 const planRoutes = require("./routes/planRoutes");
-const momoRoutes = require("./routes/momoRoutes");   // ✅ NEW
+const momoRoutes = require("./routes/momoRoutes");
+const walletRoutes = require("./routes/walletRoutes");   // ✅ NEW
 
 
 // -------------------------------
@@ -53,7 +55,8 @@ app.get("/api/test", (req, res) => {
 // -------------------------------
 app.use("/api/auth", authRoutes);     // Authentication routes
 app.use("/api/plans", planRoutes);    // Lock plan routes
-app.use("/momo", momoRoutes);         // ✅ NEW: MTN MoMo routes
+app.use("/momo", momoRoutes);         // MTN MoMo routes
+app.use("/api/wallet", walletRoutes); // ✅ NEW: Wallet deposit/topup routes
 
 
 // -------------------------------
