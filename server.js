@@ -1,23 +1,42 @@
 // -------------------------------
-//   CashLock Backend - MTN MoMo
+//   CashLock Backend - MTN MoMo + MongoDB
 // -------------------------------
 
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+// -------------------------------
+// MONGODB CONNECTION
+// -------------------------------
+if (!process.env.MONGODB_URI) {
+  console.error("❌ Missing MONGODB_URI in environment variables");
+} else {
+  mongoose
+    .connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    .then(() => console.log("✅ MongoDB connected successfully"))
+    .catch((err) => console.error("❌ MongoDB connection error:", err));
+}
+
+
 // -------------------------------
 // ROOT ROUTE
 // -------------------------------
 app.get("/", (req, res) => {
-  res.send("CashLock backend is running!");
+  res.send("CashLock backend is running with MongoDB!");
 });
+
 
 // -------------------------------
 // TEST ROUTE
@@ -25,6 +44,7 @@ app.get("/", (req, res) => {
 app.get("/api/test", (req, res) => {
   res.json({ message: "CashLock API test working!" });
 });
+
 
 // -------------------------------
 // DEBUG ROUTE - CHECK ENV VALUES
@@ -35,8 +55,10 @@ app.get("/debug-env", (req, res) => {
     MTN_API_KEY: process.env.MTN_API_KEY || "EMPTY",
     MTN_SUBSCRIPTION_KEY: process.env.MTN_SUBSCRIPTION_KEY || "EMPTY",
     MTN_CALLBACK_URL: process.env.MTN_CALLBACK_URL || "EMPTY",
+    MONGODB_URI: process.env.MONGODB_URI ? "SET" : "EMPTY",
   });
 });
+
 
 // -------------------------------
 // MTN TOKEN GENERATION
@@ -70,6 +92,7 @@ app.post("/momo/token", async (req, res) => {
   }
 });
 
+
 // -------------------------------
 // MTN REQUEST TO PAY (COLLECT)
 // -------------------------------
@@ -81,7 +104,7 @@ app.post("/momo/collect", async (req, res) => {
 
     const referenceId = uuidv4();
 
-    // 1️⃣ Generate token
+    // 1️⃣ Generate Access Token
     const tokenResponse = await axios.post(
       "https://sandbox.momodeveloper.mtn.com/collection/token/",
       {},
@@ -99,7 +122,7 @@ app.post("/momo/collect", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // 2️⃣ Request to pay
+    // 2️⃣ Request to Pay
     await axios.post(
       "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay",
       {
@@ -136,6 +159,7 @@ app.post("/momo/collect", async (req, res) => {
   }
 });
 
+
 // -------------------------------
 // MTN CALLBACK ENDPOINT
 // -------------------------------
@@ -151,10 +175,11 @@ app.post("/momo/callback", async (req, res) => {
   }
 });
 
+
 // -------------------------------
-// START SERVER (Render requires process.env.PORT)
+// START SERVER
 // -------------------------------
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 CashLock backend running on port ${PORT}`);
