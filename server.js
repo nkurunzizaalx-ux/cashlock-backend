@@ -20,7 +20,13 @@ const authRoutes = require("./routes/authRoutes");
 const planRoutes = require("./routes/planRoutes");
 const momoRoutes = require("./routes/momoRoutes");
 const walletRoutes = require("./routes/walletRoutes");
-const unlockRoutes = require("./routes/unlockRoutes");   // ✅ NEW: Unlock engine route
+const unlockRoutes = require("./routes/unlockRoutes");   // Unlock engine route
+
+// -------------------------------
+// AUTO UNLOCK CRON JOB
+// -------------------------------
+require("./cron/unlockScheduler");   // ✅ ENABLED: Cron job runs every 1 minute
+
 
 
 // -------------------------------
@@ -59,7 +65,7 @@ app.use("/api/auth", authRoutes);          // Authentication routes
 app.use("/api/plans", planRoutes);         // Lock plan routes
 app.use("/momo", momoRoutes);              // MTN MoMo routes
 app.use("/api/wallet", walletRoutes);      // Wallet routes
-app.use("/api/unlock", unlockRoutes);      // ✅ NEW: Unlock engine route
+app.use("/api/unlock", unlockRoutes);      // Unlock engine route
 
 
 // -------------------------------
