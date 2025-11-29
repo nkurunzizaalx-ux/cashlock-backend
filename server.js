@@ -10,7 +10,8 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));   // ✅ Important for Render
+app.use(express.urlencoded({ extended: true }));   // Important for Render deployments
+
 
 // -------------------------------
 // ROUTES IMPORTS
@@ -18,7 +19,8 @@ app.use(express.urlencoded({ extended: true }));   // ✅ Important for Render
 const authRoutes = require("./routes/authRoutes");
 const planRoutes = require("./routes/planRoutes");
 const momoRoutes = require("./routes/momoRoutes");
-const walletRoutes = require("./routes/walletRoutes");   // ✅ NEW
+const walletRoutes = require("./routes/walletRoutes");
+const unlockRoutes = require("./routes/unlockRoutes");   // ✅ NEW: Unlock engine route
 
 
 // -------------------------------
@@ -38,7 +40,7 @@ if (!process.env.MONGODB_URI) {
 // ROOT ROUTE
 // -------------------------------
 app.get("/", (req, res) => {
-  res.send("CashLock backend is running with MongoDB!");
+  res.send("CashLock backend is running with MongoDB + Unlock Engine!");
 });
 
 
@@ -53,10 +55,11 @@ app.get("/api/test", (req, res) => {
 // -------------------------------
 // ROUTES MOUNT
 // -------------------------------
-app.use("/api/auth", authRoutes);     // Authentication routes
-app.use("/api/plans", planRoutes);    // Lock plan routes
-app.use("/momo", momoRoutes);         // MTN MoMo routes
-app.use("/api/wallet", walletRoutes); // ✅ NEW: Wallet deposit/topup routes
+app.use("/api/auth", authRoutes);          // Authentication routes
+app.use("/api/plans", planRoutes);         // Lock plan routes
+app.use("/momo", momoRoutes);              // MTN MoMo routes
+app.use("/api/wallet", walletRoutes);      // Wallet routes
+app.use("/api/unlock", unlockRoutes);      // ✅ NEW: Unlock engine route
 
 
 // -------------------------------
