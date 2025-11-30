@@ -84,9 +84,11 @@ exports.register = async (req, res) => {
       pin: hashedPin,
     });
 
-    // CREATE WALLET
-    const wallet = await Wallet.create({
-      userId: user._id,
+    // ----------------------------------------------------------
+    // FIXED: CREATE WALLET (correct field name is user: user._id)
+    // ----------------------------------------------------------
+    await Wallet.create({
+      user: user._id,
       balance: 0,
     });
 
@@ -150,7 +152,7 @@ exports.login = async (req, res) => {
     }
 
     // GET WALLET
-    const wallet = await Wallet.findOne({ userId: user._id });
+    const wallet = await Wallet.findOne({ user: user._id });
 
     // COUNT USER PLANS
     const plansCount = await Plan.countDocuments({ userId: user._id });
