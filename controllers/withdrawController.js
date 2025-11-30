@@ -7,7 +7,6 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const { sendMoney } = require("../utils/mtnDisbursement");
 
-
 // -------------------------------------------------------------
 // INITIATE WITHDRAWAL
 // -------------------------------------------------------------
@@ -21,7 +20,9 @@ exports.initiateWithdrawal = async (req, res) => {
 
     // 1. Fetch user
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // 2. Validate PIN
     const isValidPin = await bcrypt.compare(pin, user.pin);
@@ -29,8 +30,12 @@ exports.initiateWithdrawal = async (req, res) => {
       return res.status(401).json({ message: "Invalid PIN" });
     }
 
-    // 3. Fetch wallet
-    const wallet = await Wallet.findOne({ user: userId });
+    // 3. Fetch wallet (supports both `user` and `userId` fields)
+    let wallet = await Wallet.findOne({ user: userId });
+    if (!wallet) {
+      wallet = await Wallet.findOne({ userId }); // fallback if schema uses userId
+    }
+
     if (!wallet) {
       return res.status(404).json({ message: "Wallet not found" });
     }
@@ -42,7 +47,7 @@ exports.initiateWithdrawal = async (req, res) => {
 
     const beforeBalance = wallet.balance;
 
-    // 5. Deduct amount immediately
+    // 5. Deduct amount immediately (for now)
     wallet.balance -= amount;
     await wallet.save();
 
@@ -55,24 +60,24 @@ exports.initiateWithdrawal = async (req, res) => {
       walletBalanceAfter: wallet.balance,
     });
 
-    // 7. Send money via MTN Disbursement API
+    // 7. Send money via MTN Disbursement API (sandbox-safe)
     const momoReferenceId = await sendMoney({
       amount,
-      phoneNumber: user.phone, // Must be 2507XXXXXXXX
+      phoneNumber: user.phone,
       externalId: `withdraw-${withdrawal._id}`,
     });
 
-    // 8. Update withdrawal with MTN reference
+    // 8. Update withdrawal with MTN reference (even if sandbox is noisy)
     withdrawal.momoReferenceId = momoReferenceId;
     await withdrawal.save();
 
-    // 9. Create transaction log
+    // 9. Create transaction log (FIXED: correct field names & enum)
     await Transaction.create({
-      user: userId,
-      type: "withdrawal_pending",
+      userId,                          // ✅ matches Transaction model
+      type: "withdraw",                // ✅ valid enum value
       amount,
-      description: "Withdrawal request initiated",
-      reference: withdrawal._id,
+      referenceId: String(withdrawal._id),
+      externalId: momoReferenceId || undefined,
     });
 
     return res.status(200).json({
@@ -81,7 +86,6 @@ exports.initiateWithdrawal = async (req, res) => {
       withdrawalId: withdrawal._id,
       momoReferenceId,
     });
-
   } catch (err) {
     console.error("Withdraw Error:", err);
 
@@ -91,7 +95,6 @@ exports.initiateWithdrawal = async (req, res) => {
     });
   }
 };
-
 
 
 // -------------------------------------------------------------
@@ -107,7 +110,6 @@ exports.getWithdrawalStatus = async (req, res) => {
     }
 
     return res.status(200).json(withdrawal);
-
   } catch (err) {
     console.error("Status Error:", err);
     return res.status(500).json({ message: "Error retrieving withdrawal status" });
