@@ -6,67 +6,84 @@ const Transaction = require("../models/Transaction");
 
 exports.handleWithdrawalCallback = async (req, res) => {
   try {
-    const { referenceId, status, reason } = req.body;
+    console.log("🔥 CALLBACK RECEIVED FROM MTN:", req.body);
 
-    console.log("🔥 MoMo CALLBACK RECEIVED:", req.body);
+    const {
+      externalId,
+      status,
+      financialTransactionId
+    } = req.body;
 
-    if (!referenceId || !status) {
+    // externalId for us looks like: "withdraw-<withdrawalId>"
+    if (!externalId || !status) {
       return res.status(400).json({ message: "Missing callback data" });
     }
 
-    // 1. Find the withdrawal by MTN reference ID
-    const withdrawal = await Withdrawal.findOne({ momoReferenceId: referenceId });
+    const withdrawalId = externalId.replace("withdraw-", "");
 
+    // 1. Find withdrawal record
+    const withdrawal = await Withdrawal.findById(withdrawalId);
     if (!withdrawal) {
+      console.error("❌ Withdrawal not found:", withdrawalId);
       return res.status(404).json({ message: "Withdrawal not found" });
     }
 
-    // Already processed? Prevent double processing
+    // Prevent double handling
     if (withdrawal.status === "completed" || withdrawal.status === "failed") {
       return res.status(200).json({ message: "Already processed" });
     }
 
-    // 2. SUCCESSFUL WITHDRAWAL
-    if (status.toLowerCase() === "successful") {
+    // 2. SUCCESSFUL
+    if (status.toUpperCase() === "SUCCESSFUL") {
       withdrawal.status = "completed";
+      withdrawal.mtnTransactionId = financialTransactionId || null;
       await withdrawal.save();
 
       // Create transaction entry
       await Transaction.create({
-        user: withdrawal.user,
-        type: "withdrawal_completed",
+        userId: withdrawal.user,
+        type: "withdraw",
         amount: withdrawal.amount,
-        description: "Withdrawal completed successfully",
-        reference: withdrawal._id,
+        referenceId: withdrawalId,
+        externalId: financialTransactionId
       });
 
-      return res.status(200).json({ message: "Withdrawal updated as completed" });
+      return res.status(200).json({
+        message: "Withdrawal marked as SUCCESSFUL"
+      });
     }
 
-    // 3. FAILED WITHDRAWAL → refund the user
-    if (status.toLowerCase() === "failed") {
+    // 3. FAILED → Refund
+    if (status.toUpperCase() === "FAILED") {
       withdrawal.status = "failed";
-      withdrawal.failureReason = reason || "MoMo failed";
+      withdrawal.failureReason = "MoMo reported failure";
       await withdrawal.save();
 
-      // Refund user wallet
+      // Refund wallet
       const wallet = await Wallet.findOne({ user: withdrawal.user });
-      wallet.balance += withdrawal.amount;
-      await wallet.save();
+      if (wallet) {
+        wallet.balance += withdrawal.amount;
+        await wallet.save();
+      }
 
-      // Log failed transaction
       await Transaction.create({
-        user: withdrawal.user,
-        type: "withdrawal_failed",
+        userId: withdrawal.user,
+        type: "withdraw",
         amount: withdrawal.amount,
-        description: "Withdrawal failed and amount refunded",
-        reference: withdrawal._id,
+        referenceId: withdrawalId,
+        externalId: financialTransactionId
       });
 
-      return res.status(200).json({ message: "Withdrawal failed -> refunded" });
+      return res.status(200).json({
+        message: "Withdrawal FAILED and refunded"
+      });
     }
 
-    return res.status(200).json({ message: "Callback processed" });
+    // 4. Pending or other statuses
+    withdrawal.status = "processing";
+    await withdrawal.save();
+
+    return res.status(200).json({ message: "Callback processed (PENDING)" });
 
   } catch (err) {
     console.error("❌ Callback Error:", err);

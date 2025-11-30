@@ -24,6 +24,7 @@ const unlockRoutes = require("./routes/unlockRoutes");
 const topupRoutes = require("./routes/topupRoutes");
 const momoCallbackRoutes = require("./routes/momoCallbackRoutes");
 const withdrawRoutes = require("./routes/withdrawRoutes");  // ✅ NEW WITHDRAWAL ROUTES
+const momoCallbackRoutes = require("./routes/momoCallbackRoutes");
 
 
 // -------------------------------
@@ -64,13 +65,18 @@ app.get("/api/test", (req, res) => {
 // -------------------------------
 // ROUTES MOUNT
 // -------------------------------
+// -------------------------------
+// ROUTES MOUNT
+// -------------------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
-app.use("/momo", momoRoutes);
+app.use("/momo", momoRoutes);                 // MTN INITIATION ROUTES
+app.use("/momo-callback", momoCallbackRoutes); // MTN CALLBACK ROUTES
 app.use("/api/wallet", walletRoutes);
 app.use("/api/unlock", unlockRoutes);
 app.use("/api/topup", topupRoutes);
-app.use("/withdraw", withdrawRoutes); // ⭐ WITHDRAWAL ENDPOINTS ACTIVE
+app.use("/withdraw", withdrawRoutes);         // WITHDRAWAL ROUTES
+
 
 
 // -------------------------------

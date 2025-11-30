@@ -1,23 +1,10 @@
 // routes/momoRoutes.js
+
 const express = require("express");
 const router = express.Router();
-const momoController = require("../controllers/momoController");
+const momoCallbackController = require("../controllers/momoCallbackController");
 
-// ------------------------------------------------------
-// GET MTN ACCESS TOKEN (Optional - Debug/Test)
-// ------------------------------------------------------
-router.post("/token", momoController.getToken);
-
-// ------------------------------------------------------
-// INITIATE REQUEST TO PAY (Deposit via MoMo)
-// POST /momo/collect
-// ------------------------------------------------------
-router.post("/collect", momoController.requestToPay);
-
-// ------------------------------------------------------
-// MTN CALLBACK ENDPOINT (You set this in MTN portal)
-// POST /momo/callback
-// ------------------------------------------------------
-router.post("/callback", momoController.handleCallback);
+// MTN sends callback here after withdrawal is processed
+router.post("/withdraw/callback", momoCallbackController.handleWithdrawalCallback);
 
 module.exports = router;
