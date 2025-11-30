@@ -10,7 +10,8 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));   // Important for Render deployments
+app.use(express.urlencoded({ extended: true })); // Important for Render deployments
+
 
 // -------------------------------
 // ROUTES IMPORTS
@@ -19,12 +20,15 @@ const authRoutes = require("./routes/authRoutes");
 const planRoutes = require("./routes/planRoutes");
 const momoRoutes = require("./routes/momoRoutes");
 const walletRoutes = require("./routes/walletRoutes");
-const unlockRoutes = require("./routes/unlockRoutes");   // Unlock engine route
+const unlockRoutes = require("./routes/unlockRoutes");
+const topupRoutes = require("./routes/topup");   // ⭐ NEW TOPUP ROUTE
+
 
 // -------------------------------
 // AUTO UNLOCK CRON JOB
 // -------------------------------
-require("./cron/unlockScheduler");   // Cron job runs every minute
+require("./cron/unlockScheduler"); // Cron job runs every minute
+
 
 // -------------------------------
 // MONGODB CONNECTION
@@ -38,6 +42,7 @@ if (!process.env.MONGODB_URI) {
     .catch((err) => console.error("❌ MongoDB connection error:", err));
 }
 
+
 // -------------------------------
 // ROOT ROUTE
 // -------------------------------
@@ -45,12 +50,14 @@ app.get("/", (req, res) => {
   res.send("CashLock backend is running with MongoDB + Unlock Engine!");
 });
 
+
 // -------------------------------
 // TEST ROUTE
 // -------------------------------
 app.get("/api/test", (req, res) => {
   res.json({ message: "CashLock API test working!" });
 });
+
 
 // -------------------------------
 // ROUTES MOUNT
@@ -60,6 +67,8 @@ app.use("/api/plans", planRoutes);
 app.use("/momo", momoRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/unlock", unlockRoutes);
+app.use("/api/topup", topupRoutes);  // ⭐ ACTIVATE TOPUP ROUTE
+
 
 // -------------------------------
 // DEBUG ROUTE
@@ -73,6 +82,7 @@ app.get("/debug-env", (req, res) => {
     MONGODB_URI: process.env.MONGODB_URI ? "SET" : "EMPTY",
   });
 });
+
 
 // -------------------------------
 // START SERVER

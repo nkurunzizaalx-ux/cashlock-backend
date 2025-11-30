@@ -65,6 +65,38 @@ exports.manualDeposit = async (req, res) => {
 
 
 // ------------------------------------------------------
+// NEW: GET FULL WALLET OBJECT
+// ------------------------------------------------------
+exports.getWallet = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const wallet = await Wallet.findOne({ userId });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      wallet,
+    });
+
+  } catch (error) {
+    console.error("Get Wallet Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+
+// ------------------------------------------------------
 // GET USER WALLET BALANCE
 // ------------------------------------------------------
 exports.getBalance = async (req, res) => {
@@ -117,7 +149,6 @@ exports.getTransactions = async (req, res) => {
       });
     }
 
-    // Fetch transactions for user
     const transactions = await Transaction.find({ userId })
       .sort({ created_at: -1 });
 

@@ -5,6 +5,9 @@ const walletController = require("../controllers/walletController");
 // MANUAL DEPOSIT (Admin / Testing)
 router.post("/deposit", walletController.manualDeposit);
 
+// NEW → Get full wallet info
+router.get("/:userId", walletController.getWallet);
+
 // GET WALLET BALANCE
 router.get("/balance/:userId", walletController.getBalance);
 
