@@ -1,5 +1,5 @@
 // -------------------------------
-//   CashLock Backend - MTN MoMo + MongoDB
+//   CashLock Backend - MTN MoMo + MongoDB + Withdrawals
 // -------------------------------
 
 const express = require("express");
@@ -21,7 +21,9 @@ const planRoutes = require("./routes/planRoutes");
 const momoRoutes = require("./routes/momoRoutes");
 const walletRoutes = require("./routes/walletRoutes");
 const unlockRoutes = require("./routes/unlockRoutes");
-const topupRoutes = require("./routes/topupRoutes");   // ✅ FIXED
+const topupRoutes = require("./routes/topupRoutes");
+const momoCallbackRoutes = require("./routes/momoCallbackRoutes");
+const withdrawRoutes = require("./routes/withdrawRoutes");  // ✅ NEW WITHDRAWAL ROUTES
 
 
 // -------------------------------
@@ -47,7 +49,7 @@ if (!process.env.MONGODB_URI) {
 // ROOT ROUTE
 // -------------------------------
 app.get("/", (req, res) => {
-  res.send("CashLock backend is running with MongoDB + Unlock Engine!");
+  res.send("CashLock backend is running with MongoDB + Unlock Engine + Withdrawals!");
 });
 
 
@@ -67,17 +69,19 @@ app.use("/api/plans", planRoutes);
 app.use("/momo", momoRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/unlock", unlockRoutes);
-app.use("/api/topup", topupRoutes);  // ⭐ FIXED & ACTIVE
+app.use("/api/topup", topupRoutes);
+app.use("/withdraw", withdrawRoutes); // ⭐ WITHDRAWAL ENDPOINTS ACTIVE
 
 
 // -------------------------------
-// DEBUG ROUTE
+// DEBUG ENV ROUTE
 // -------------------------------
 app.get("/debug-env", (req, res) => {
   res.json({
     MTN_API_USER: process.env.MTN_API_USER || "EMPTY",
     MTN_API_KEY: process.env.MTN_API_KEY || "EMPTY",
-    MTN_SUBSCRIPTION_KEY: process.env.MTN_SUBSCRIPTION_KEY || "EMPTY",
+    MTN_COLLECTION_KEY: process.env.MTN_COLLECTION_KEY || "EMPTY",
+    MTN_DISBURSEMENT_KEY: process.env.MTN_DISBURSEMENT_KEY || "EMPTY",
     MTN_CALLBACK_URL: process.env.MTN_CALLBACK_URL || "EMPTY",
     MONGODB_URI: process.env.MONGODB_URI ? "SET" : "EMPTY",
   });

@@ -41,10 +41,7 @@ exports.previewPlan = async (req, res) => {
 
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found",
-      });
+      return res.status(404).json({ success: false, message: "Wallet not found" });
     }
 
     const { fee, fee_percentage } = calculateFee(amount_locked);
@@ -62,10 +59,7 @@ exports.previewPlan = async (req, res) => {
 
   } catch (error) {
     console.error("Preview Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -102,15 +96,14 @@ exports.createPlan = async (req, res) => {
 
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found",
-      });
+      return res.status(404).json({ success: false, message: "Wallet not found" });
     }
 
+    // Calculate service fee
     const { fee, fee_percentage } = calculateFee(amount_locked);
     const total_deduction = amount_locked + fee;
 
+    // Check wallet balance
     if (wallet.balance < total_deduction) {
       return res.status(400).json({
         success: false,
@@ -118,9 +111,11 @@ exports.createPlan = async (req, res) => {
       });
     }
 
+    // Deduct from wallet
     wallet.balance -= total_deduction;
     await wallet.save();
 
+    // Create plan object
     let planData = {
       userId,
       plan_type,
@@ -175,8 +170,10 @@ exports.createPlan = async (req, res) => {
       }
     }
 
+    // Save plan
     const plan = await Plan.create(planData);
 
+    // Log lock transaction
     await Transaction.create({
       userId,
       type: "lock",
@@ -185,16 +182,15 @@ exports.createPlan = async (req, res) => {
       planId: plan._id,
     });
 
-    let companyWallet = await CompanyWallet.findOne();
-    if (!companyWallet) {
-      companyWallet = await CompanyWallet.create({});
-    }
+    // Update company wallet (profit)
+    let companyWallet = await CompanyWallet.getWallet();
 
     companyWallet.total_earnings += fee;
     companyWallet.total_fees_collected += fee;
     companyWallet.updated_at = new Date();
     await companyWallet.save();
 
+    // Log earning record
     await CompanyEarnings.create({
       userId,
       planId: plan._id,
@@ -211,10 +207,7 @@ exports.createPlan = async (req, res) => {
 
   } catch (error) {
     console.error("Plan Creation Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -228,10 +221,7 @@ exports.getUserPlans = async (req, res) => {
     const { userId } = req.params;
 
     if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
+      return res.status(400).json({ success: false, message: "userId is required" });
     }
 
     const plans = await Plan.find({ userId }).sort({ created_at: -1 });
@@ -244,10 +234,7 @@ exports.getUserPlans = async (req, res) => {
 
   } catch (error) {
     console.error("Fetch Plans Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -262,21 +249,17 @@ exports.updatePlan = async (req, res) => {
     const updates = req.body;
 
     if (!planId) {
-      return res.status(400).json({
-        success: false,
-        message: "planId is required",
-      });
+      return res.status(400).json({ success: false, message: "planId is required" });
     }
 
     const plan = await Plan.findById(planId);
     if (!plan) {
-      return res.status(404).json({
-        success: false,
-        message: "Plan not found",
-      });
+      return res.status(404).json({ success: false, message: "Plan not found" });
     }
 
+    // Goal plan rules
     if (updates.progress !== undefined && plan.plan_type === "goal") {
+
       if (updates.progress > plan.goal_target) {
         return res.status(400).json({
           success: false,
@@ -294,11 +277,7 @@ exports.updatePlan = async (req, res) => {
 
     updates.updated_at = new Date();
 
-    const updatedPlan = await Plan.findByIdAndUpdate(
-      planId,
-      updates,
-      { new: true }
-    );
+    const updatedPlan = await Plan.findByIdAndUpdate(planId, updates, { new: true });
 
     return res.status(200).json({
       success: true,
@@ -308,17 +287,14 @@ exports.updatePlan = async (req, res) => {
 
   } catch (error) {
     console.error("Update Plan Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
 
 
 // ------------------------------------------------------
-// TOP-UP GOAL PLAN  ⭐ ADDED BELOW
+// TOP-UP GOAL PLAN
 // ------------------------------------------------------
 exports.topUpGoalPlan = async (req, res) => {
   try {
@@ -333,10 +309,7 @@ exports.topUpGoalPlan = async (req, res) => {
 
     const plan = await Plan.findById(planId);
     if (!plan) {
-      return res.status(404).json({
-        success: false,
-        message: "Plan not found",
-      });
+      return res.status(404).json({ success: false, message: "Plan not found" });
     }
 
     if (plan.plan_type !== "goal") {
@@ -355,10 +328,7 @@ exports.topUpGoalPlan = async (req, res) => {
 
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found",
-      });
+      return res.status(404).json({ success: false, message: "Wallet not found" });
     }
 
     if (wallet.balance < amount) {
@@ -382,9 +352,11 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
+    // Deduct from wallet
     wallet.balance -= amount;
     await wallet.save();
 
+    // Update plan progress
     plan.progress += amount;
     plan.max_top_up_allowed = plan.goal_target - plan.progress;
     plan.top_up_allowed = plan.progress < plan.goal_target;
@@ -398,6 +370,7 @@ exports.topUpGoalPlan = async (req, res) => {
 
     await plan.save();
 
+    // Log transaction
     await Transaction.create({
       userId,
       planId,
