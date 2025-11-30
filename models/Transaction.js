@@ -9,7 +9,7 @@ const TransactionSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ["deposit", "lock", "unlock", "withdraw"],
+    enum: ["deposit", "lock", "unlock", "withdraw", "topup"], // ⭐ FIXED
     required: true
   },
 
@@ -32,7 +32,8 @@ const TransactionSchema = new mongoose.Schema({
   },
 
   momo_status: {
-    type: String
+    type: String,
+    default: "SUCCESSFUL"
   },
 
   planId: {

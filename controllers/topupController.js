@@ -9,6 +9,7 @@ exports.topUpGoalPlan = async (req, res) => {
   try {
     const { userId, planId, amount } = req.body;
 
+    // Basic validation
     if (!userId || !planId || !amount) {
       return res.status(400).json({
         success: false,
@@ -16,6 +17,7 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
+    // Fetch plan
     const plan = await Plan.findById(planId);
     if (!plan) {
       return res.status(404).json({
@@ -24,6 +26,7 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
+    // Ensure goal plan type
     if (plan.plan_type !== "goal") {
       return res.status(400).json({
         success: false,
@@ -31,6 +34,7 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
+    // Ensure plan is active
     if (!plan.is_active || plan.status === "completed") {
       return res.status(400).json({
         success: false,
@@ -55,7 +59,7 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
-    // Check top-up limits
+    // Check top-up allowance
     if (!plan.top_up_allowed) {
       return res.status(400).json({
         success: false,
@@ -70,17 +74,21 @@ exports.topUpGoalPlan = async (req, res) => {
       });
     }
 
-    // Deduct from wallet
+    // ------------------------------------------------------
+    // SAFE UPDATE: Deduct from wallet first
+    // ------------------------------------------------------
     wallet.balance -= amount;
+    wallet.updated_at = new Date();
     await wallet.save();
 
+    // ------------------------------------------------------
     // Update plan progress
+    // ------------------------------------------------------
     plan.progress += amount;
     plan.max_top_up_allowed = plan.goal_target - plan.progress;
     plan.top_up_allowed = plan.progress < plan.goal_target;
     plan.updated_at = new Date();
 
-    // Auto-complete if goal reached
     if (plan.progress >= plan.goal_target) {
       plan.status = "completed";
       plan.is_active = false;
@@ -89,15 +97,22 @@ exports.topUpGoalPlan = async (req, res) => {
 
     await plan.save();
 
+    // ------------------------------------------------------
     // Log transaction
+    // ------------------------------------------------------
     await Transaction.create({
       userId,
       planId,
       type: "topup",
       amount,
       currency: "RWF",
+      momo_status: "SUCCESSFUL",
+      created_at: new Date(),
     });
 
+    // ------------------------------------------------------
+    // SUCCESS RESPONSE
+    // ------------------------------------------------------
     return res.status(200).json({
       success: true,
       message: "Top-up successful",
@@ -106,10 +121,11 @@ exports.topUpGoalPlan = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Top-up Error:", error);
+    console.error("🔥 TOP-UP ERROR:", error);  // <-- NOW YOU SEE REAL ERROR IN CONSOLE
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message, // helpful for debugging
     });
   }
 };
