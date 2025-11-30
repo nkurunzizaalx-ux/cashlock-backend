@@ -26,8 +26,7 @@ function calculateFee(amount_locked) {
 
 
 // ------------------------------------------------------
-// PREVIEW: Check fee + wallet balance BEFORE locking
-// POST /api/plans/preview
+// PREVIEW PLAN
 // ------------------------------------------------------
 exports.previewPlan = async (req, res) => {
   try {
@@ -40,7 +39,6 @@ exports.previewPlan = async (req, res) => {
       });
     }
 
-    // Get user wallet
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
       return res.status(404).json({
@@ -49,7 +47,6 @@ exports.previewPlan = async (req, res) => {
       });
     }
 
-    // Fee calculation
     const { fee, fee_percentage } = calculateFee(amount_locked);
     const total_deduction = amount_locked + fee;
 
@@ -75,8 +72,7 @@ exports.previewPlan = async (req, res) => {
 
 
 // ------------------------------------------------------
-// CREATE LOCKING PLAN (Daily | Fixed | Goal)
-// POST /api/plans/create
+// CREATE PLAN
 // ------------------------------------------------------
 exports.createPlan = async (req, res) => {
   try {
@@ -90,7 +86,6 @@ exports.createPlan = async (req, res) => {
       goal_target
     } = req.body;
 
-    // Basic validation
     if (!userId || !plan_type || !amount_locked) {
       return res.status(400).json({
         success: false,
@@ -105,7 +100,6 @@ exports.createPlan = async (req, res) => {
       });
     }
 
-    // Get wallet
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
       return res.status(404).json({
@@ -114,10 +108,6 @@ exports.createPlan = async (req, res) => {
       });
     }
 
-
-    // --------------------------------------------------
-    // Calculate fee and check balance
-    // --------------------------------------------------
     const { fee, fee_percentage } = calculateFee(amount_locked);
     const total_deduction = amount_locked + fee;
 
@@ -128,17 +118,9 @@ exports.createPlan = async (req, res) => {
       });
     }
 
-
-    // --------------------------------------------------
-    // Deduct total amount (locked money + fee)
-    // --------------------------------------------------
     wallet.balance -= total_deduction;
     await wallet.save();
 
-
-    // --------------------------------------------------
-    // Prepare base plan data
-    // --------------------------------------------------
     let planData = {
       userId,
       plan_type,
@@ -152,8 +134,7 @@ exports.createPlan = async (req, res) => {
       updated_at: new Date(),
     };
 
-
-    // DAILY PLAN
+    // DAILY
     if (plan_type === "daily") {
       planData.daily_unlock_amount = Math.round(amount_locked / 30);
       planData.remaining_amount = amount_locked;
@@ -162,7 +143,7 @@ exports.createPlan = async (req, res) => {
       planData.next_unlock_at = new Date();
     }
 
-    // FIXED PLAN
+    // FIXED
     if (plan_type === "fixed") {
       if (!unlock_date) {
         return res.status(400).json({
@@ -173,7 +154,7 @@ exports.createPlan = async (req, res) => {
       planData.unlock_date = unlock_date;
     }
 
-    // GOAL PLAN
+    // GOAL
     if (plan_type === "goal") {
       if (!goal_target) {
         return res.status(400).json({
@@ -190,19 +171,12 @@ exports.createPlan = async (req, res) => {
       if (amount_locked >= goal_target) {
         planData.status = "completed";
         planData.is_active = false;
+        planData.is_goal_met = true;
       }
     }
 
-
-    // --------------------------------------------------
-    // Save the plan
-    // --------------------------------------------------
     const plan = await Plan.create(planData);
 
-
-    // --------------------------------------------------
-    // Log user transaction
-    // --------------------------------------------------
     await Transaction.create({
       userId,
       type: "lock",
@@ -211,10 +185,6 @@ exports.createPlan = async (req, res) => {
       planId: plan._id,
     });
 
-
-    // --------------------------------------------------
-    // Update company wallet (fee revenue)
-    // --------------------------------------------------
     let companyWallet = await CompanyWallet.findOne();
     if (!companyWallet) {
       companyWallet = await CompanyWallet.create({});
@@ -225,10 +195,6 @@ exports.createPlan = async (req, res) => {
     companyWallet.updated_at = new Date();
     await companyWallet.save();
 
-
-    // --------------------------------------------------
-    // Log fee in CompanyEarnings table
-    // --------------------------------------------------
     await CompanyEarnings.create({
       userId,
       planId: plan._id,
@@ -236,10 +202,6 @@ exports.createPlan = async (req, res) => {
       fee_percentage,
     });
 
-
-    // --------------------------------------------------
-    // Success response
-    // --------------------------------------------------
     return res.status(201).json({
       success: true,
       message: "Plan created successfully",
@@ -259,7 +221,7 @@ exports.createPlan = async (req, res) => {
 
 
 // ------------------------------------------------------
-// GET ALL USER PLANS
+// GET USER PLANS
 // ------------------------------------------------------
 exports.getUserPlans = async (req, res) => {
   try {
@@ -282,6 +244,77 @@ exports.getUserPlans = async (req, res) => {
 
   } catch (error) {
     console.error("Fetch Plans Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+
+// ------------------------------------------------------
+// UPDATE PLAN (goal progress, unlock_date, unlock_time)
+// ------------------------------------------------------
+exports.updatePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const updates = req.body;
+
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: "planId is required",
+      });
+    }
+
+    const plan = await Plan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    // Prevent exceeding goal target
+    if (updates.progress !== undefined) {
+      if (plan.plan_type === "goal") {
+        if (updates.progress > plan.goal_target) {
+          return res.status(400).json({
+            success: false,
+            message: "Progress cannot exceed goal target",
+          });
+        }
+
+        // Update top-up flags
+        updates.max_top_up_allowed = plan.goal_target - updates.progress;
+        updates.top_up_allowed = updates.progress < plan.goal_target;
+
+        // Auto complete
+        if (updates.progress >= plan.goal_target) {
+          updates.status = "completed";
+          updates.is_active = false;
+          updates.is_goal_met = true;
+        }
+      }
+    }
+
+    updates.updated_at = new Date();
+
+    const updatedPlan = await Plan.findByIdAndUpdate(
+      planId,
+      updates,
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Plan updated successfully",
+      plan: updatedPlan,
+    });
+
+  } catch (error) {
+    console.error("Update Plan Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",

@@ -4,24 +4,23 @@ const planController = require("../controllers/planController");
 
 
 // ------------------------------------------------------
-// PREVIEW LOCK PLAN (Fee + Total Deduction + Wallet Check)
-// POST /api/plans/preview
+// PREVIEW LOCK PLAN
 // ------------------------------------------------------
 router.post("/preview", planController.previewPlan);
 
-
 // ------------------------------------------------------
-// CREATE LOCK PLAN (Daily | Fixed | Goal)
-// POST /api/plans/create
+// CREATE LOCK PLAN
 // ------------------------------------------------------
 router.post("/create", planController.createPlan);
 
-
 // ------------------------------------------------------
 // GET ALL PLANS FOR A USER
-// GET /api/plans/user/:userId
 // ------------------------------------------------------
 router.get("/user/:userId", planController.getUserPlans);
 
+// ------------------------------------------------------
+// UPDATE PLAN (Goal progress, unlock_time, unlock_date, etc.)
+// ------------------------------------------------------
+router.put("/update/:planId", planController.updatePlan);
 
 module.exports = router;
