@@ -134,7 +134,7 @@ exports.createPlan = async (req, res) => {
       updated_at: new Date(),
     };
 
-    // DAILY
+    // DAILY PLAN
     if (plan_type === "daily") {
       planData.daily_unlock_amount = Math.round(amount_locked / 30);
       planData.remaining_amount = amount_locked;
@@ -143,7 +143,7 @@ exports.createPlan = async (req, res) => {
       planData.next_unlock_at = new Date();
     }
 
-    // FIXED
+    // FIXED PLAN
     if (plan_type === "fixed") {
       if (!unlock_date) {
         return res.status(400).json({
@@ -154,7 +154,7 @@ exports.createPlan = async (req, res) => {
       planData.unlock_date = unlock_date;
     }
 
-    // GOAL
+    // GOAL PLAN
     if (plan_type === "goal") {
       if (!goal_target) {
         return res.status(400).json({
@@ -254,7 +254,7 @@ exports.getUserPlans = async (req, res) => {
 
 
 // ------------------------------------------------------
-// UPDATE PLAN (goal progress, unlock_date, unlock_time)
+// UPDATE PLAN (corrected for goal unlock via CRON)
 // ------------------------------------------------------
 exports.updatePlan = async (req, res) => {
   try {
@@ -276,26 +276,24 @@ exports.updatePlan = async (req, res) => {
       });
     }
 
-    // Prevent exceeding goal target
-    if (updates.progress !== undefined) {
-      if (plan.plan_type === "goal") {
-        if (updates.progress > plan.goal_target) {
-          return res.status(400).json({
-            success: false,
-            message: "Progress cannot exceed goal target",
-          });
-        }
+    // Handle GOAL plan update
+    if (updates.progress !== undefined && plan.plan_type === "goal") {
+      // Prevent exceeding target
+      if (updates.progress > plan.goal_target) {
+        return res.status(400).json({
+          success: false,
+          message: "Progress cannot exceed goal target",
+        });
+      }
 
-        // Update top-up flags
-        updates.max_top_up_allowed = plan.goal_target - updates.progress;
-        updates.top_up_allowed = updates.progress < plan.goal_target;
+      // Update remaining top-up allowance
+      updates.max_top_up_allowed = plan.goal_target - updates.progress;
+      updates.top_up_allowed = updates.progress < plan.goal_target;
 
-        // Auto complete
-        if (updates.progress >= plan.goal_target) {
-          updates.status = "completed";
-          updates.is_active = false;
-          updates.is_goal_met = true;
-        }
+      // Mark goal met but DO NOT complete the plan here
+      // CRON unlock engine will unlock it at unlock_time
+      if (updates.progress >= plan.goal_target) {
+        updates.is_goal_met = true;
       }
     }
 
