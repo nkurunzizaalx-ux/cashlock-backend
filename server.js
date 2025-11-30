@@ -21,7 +21,7 @@ const planRoutes = require("./routes/planRoutes");
 const momoRoutes = require("./routes/momoRoutes");
 const walletRoutes = require("./routes/walletRoutes");
 const unlockRoutes = require("./routes/unlockRoutes");
-const topupRoutes = require("./routes/topup");   // ⭐ NEW TOPUP ROUTE
+const topupRoutes = require("./routes/topupRoutes");   // ✅ FIXED
 
 
 // -------------------------------
@@ -67,7 +67,7 @@ app.use("/api/plans", planRoutes);
 app.use("/momo", momoRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/unlock", unlockRoutes);
-app.use("/api/topup", topupRoutes);  // ⭐ ACTIVATE TOPUP ROUTE
+app.use("/api/topup", topupRoutes);  // ⭐ FIXED & ACTIVE
 
 
 // -------------------------------
