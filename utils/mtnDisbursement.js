@@ -1,7 +1,54 @@
+// utils/mtnDisbursement.js
+
+const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
+require("dotenv").config();
+
+const MOMO_ENV = process.env.MTN_ENV || "sandbox";
+
+// Base URLs for MTN API
+const BASE_URL =
+  MOMO_ENV === "sandbox"
+    ? "https://sandbox.momodeveloper.mtn.com"
+    : "https://momodeveloper.mtn.com";
+
+// ENV variables
+const API_USER = process.env.MTN_API_USER;
+const API_KEY = process.env.MTN_API_KEY;
+const SUBSCRIPTION_KEY = process.env.MTN_DISBURSEMENT_KEY; // <-- IMPORTANT
+
+
+// -------------------------------------------------------------
+// 1. GENERATE ACCESS TOKEN
+// -------------------------------------------------------------
+async function getAccessToken() {
+  try {
+    const response = await axios({
+      method: "post",
+      url: `${BASE_URL}/disbursement/token/`,
+      headers: {
+        "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY,
+        Authorization: `Basic ${Buffer.from(
+          `${API_USER}:${API_KEY}`
+        ).toString("base64")}`,
+      },
+    });
+
+    return response.data.access_token;
+  } catch (err) {
+    console.error("MoMo Access Token Error:", err.response?.data || err.message);
+    throw new Error("MoMo Access Token Failed");
+  }
+}
+
+
+// -------------------------------------------------------------
+// 2. SEND MONEY TO USER (DISBURSEMENT) - FIXED
+// -------------------------------------------------------------
 async function sendMoney({ amount, phoneNumber, externalId }) {
   try {
     const token = await getAccessToken();
-    const referenceId = uuid.v4();
+    const referenceId = uuidv4();
 
     const payload = {
       amount: String(amount),
@@ -9,7 +56,7 @@ async function sendMoney({ amount, phoneNumber, externalId }) {
       externalId: externalId || "CashLock-Withdrawal",
       payee: {
         partyIdType: "MSISDN",
-        partyId: phoneNumber,
+        partyId: phoneNumber, // e.g. 46733123454
       },
       payerMessage: "CashLock Withdrawal",
       payeeNote: "CashLock Funds",
@@ -26,21 +73,65 @@ async function sendMoney({ amount, phoneNumber, externalId }) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      validateStatus: () => true  // IMPORTANT: allow us to inspect 202
+      // IMPORTANT: don't throw on non-2xx so we can check status ourselves
+      validateStatus: () => true,
     });
 
-    // MTN SUCCESS = HTTP 202
+    // MTN success for transfer = HTTP 202
     if (response.status === 202) {
-      console.log("MTN Transfer Accepted (202):", referenceId);
+      console.log("✅ MTN Transfer Accepted (202), ref:", referenceId);
       return referenceId;
     }
 
-    // Anything else = actual failure
-    console.error("MoMo Transfer Error:", response.data || response.status);
+    console.error(
+      "❌ MoMo Transfer Error (non-202):",
+      response.status,
+      response.data
+    );
     throw new Error("MoMo Transfer Failed");
-
   } catch (err) {
-    console.error("MoMo Transfer Exception:", err.response?.data || err.message);
+    console.error(
+      "❌ MoMo Transfer Exception:",
+      err.response?.data || err.message
+    );
     throw new Error("MoMo Transfer Failed");
   }
 }
+
+
+// -------------------------------------------------------------
+// 3. CHECK DISBURSEMENT STATUS (OPTIONAL)
+// -------------------------------------------------------------
+async function getTransferStatus(referenceId) {
+  try {
+    const token = await getAccessToken();
+
+    const response = await axios({
+      method: "get",
+      url: `${BASE_URL}/disbursement/v1_0/transfer/${referenceId}`,
+      headers: {
+        "X-Target-Environment": MOMO_ENV,
+        "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+  } catch (err) {
+    console.error(
+      "MoMo Transfer Status Error:",
+      err.response?.data || err.message
+    );
+    throw new Error("MoMo Status Check Failed");
+  }
+}
+
+
+// -------------------------------------------------------------
+// EXPORTS
+// -------------------------------------------------------------
+module.exports = {
+  getAccessToken,
+  sendMoney,
+  getTransferStatus,
+};
