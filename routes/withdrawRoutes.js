@@ -8,6 +8,9 @@ const {
   getWithdrawalStatus,
 } = require("../controllers/withdrawController");
 
+const {
+  getWithdrawalHistory,
+} = require("../controllers/withdrawalHistoryController");
 
 // -------------------------------------------------------------
 // WITHDRAWAL ROUTES
@@ -19,5 +22,7 @@ router.post("/initiate", initiateWithdrawal);
 // Get status of a specific withdrawal
 router.get("/status/:id", getWithdrawalStatus);
 
+// NEW: Get withdrawal history for a user
+router.get("/history/:userId", getWithdrawalHistory);
 
 module.exports = router;

@@ -1,11 +1,42 @@
+// models/Wallet.js
 const mongoose = require("mongoose");
 
-const WalletSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },   // FIXED
-  balance: { type: Number, default: 0 },
-  currency: { type: String, default: "RWF" },
+const WalletSchema = new mongoose.Schema(
+  {
+    userId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "User", 
+      required: true 
+    },
 
-  updated_at: { type: Date, default: Date.now }
-});
+    balance: { 
+      type: Number, 
+      default: 0 
+    },
+
+    total_locked: { 
+      type: Number, 
+      default: 0 
+    },
+
+    currency: { 
+      type: String, 
+      default: "RWF" 
+    },
+
+    lifetime_earnings: { 
+      type: Number, 
+      default: 0 
+    }, // future use: company revenue tracking
+
+    last_transaction_at: { 
+      type: Date, 
+      default: Date.now 
+    },
+  },
+  {
+    timestamps: true, // auto adds createdAt & updatedAt
+  }
+);
 
 module.exports = mongoose.model("Wallet", WalletSchema);

@@ -26,17 +26,17 @@ const WithdrawalSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    // MTN MoMo reference ID (UUID) for this withdrawal
+    // MTN MoMo reference ID (UUID)
     momoReferenceId: {
       type: String,
     },
 
-    // Short explanation if it fails (insufficient funds, MoMo error, etc.)
+    // Reason for failure (if any)
     failureReason: {
       type: String,
     },
 
-    // Snapshot of wallet before/after (optional but useful for audit)
+    // Snapshot of wallet at withdrawal time
     walletBalanceBefore: {
       type: Number,
     },
@@ -45,7 +45,7 @@ const WithdrawalSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // adds createdAt, updatedAt
+    timestamps: true, // createdAt, updatedAt
   }
 );
 

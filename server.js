@@ -23,14 +23,15 @@ const walletRoutes = require("./routes/walletRoutes");
 const unlockRoutes = require("./routes/unlockRoutes");
 const topupRoutes = require("./routes/topupRoutes");
 const momoCallbackRoutes = require("./routes/momoCallbackRoutes");
-const withdrawRoutes = require("./routes/withdrawRoutes");  // ✅ NEW WITHDRAWAL ROUTES
+const withdrawRoutes = require("./routes/withdrawRoutes"); 
+const depositRoutes = require("./routes/depositRoutes");   // ⭐ NEW: Deposit Routes
 
 
 
 // -------------------------------
 // AUTO UNLOCK CRON JOB
 // -------------------------------
-require("./cron/unlockScheduler"); // Cron job runs every minute
+require("./cron/unlockScheduler");
 
 
 // -------------------------------
@@ -65,17 +66,15 @@ app.get("/api/test", (req, res) => {
 // -------------------------------
 // ROUTES MOUNT
 // -------------------------------
-// -------------------------------
-// ROUTES MOUNT
-// -------------------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", planRoutes);
-app.use("/momo", momoRoutes);                 // MTN INITIATION ROUTES
-app.use("/momo-callback", momoCallbackRoutes); // MTN CALLBACK ROUTES
+app.use("/momo", momoRoutes);                      
+app.use("/momo-callback", momoCallbackRoutes);    
 app.use("/api/wallet", walletRoutes);
 app.use("/api/unlock", unlockRoutes);
 app.use("/api/topup", topupRoutes);
-app.use("/withdraw", withdrawRoutes);         // WITHDRAWAL ROUTES
+app.use("/api/withdraw", withdrawRoutes);
+app.use("/api/deposit", depositRoutes);           // ⭐ NEW: Deposit Initiation Route
 
 
 

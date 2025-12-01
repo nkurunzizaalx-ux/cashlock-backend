@@ -3,10 +3,28 @@ const Transaction = require("../models/Transaction");
 
 
 // ------------------------------------------------------
-// MANUAL DEPOSIT (Admin, Testing, Bonus)
+// MANUAL DEPOSIT (Admin, Testing, Development Only)
+// Secured with Admin Key + Disabled in Production
 // ------------------------------------------------------
 exports.manualDeposit = async (req, res) => {
   try {
+    // 🔐 Disable manual deposit in PRODUCTION automatically
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({
+        success: false,
+        message: "Manual deposit is disabled in production for security reasons.",
+      });
+    }
+
+    // 🔐 Admin Key Security: requires x-admin-key header
+    const adminKey = req.headers["x-admin-key"];
+    if (!adminKey || adminKey !== process.env.ADMIN_SECRET_KEY) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Invalid or missing admin key.",
+      });
+    }
+
     const { userId, amount } = req.body;
 
     if (!userId || !amount) {
@@ -23,18 +41,21 @@ exports.manualDeposit = async (req, res) => {
       });
     }
 
-    // Fetch wallet
-    const wallet = await Wallet.findOne({ userId });
+    // Fetch wallet OR create it automatically if missing
+    let wallet = await Wallet.findOne({ userId });
+
     if (!wallet) {
-      return res.status(404).json({
-        success: false,
-        message: "Wallet not found",
+      wallet = await Wallet.create({
+        userId,
+        balance: 0,
+        total_locked: 0,
+        lifetime_earnings: 0,
       });
     }
 
     // Update balance
     wallet.balance += amount;
-    wallet.updated_at = new Date();
+    wallet.last_transaction_at = new Date();
     await wallet.save();
 
     // Log transaction
@@ -49,7 +70,7 @@ exports.manualDeposit = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Deposit successful",
+      message: "Deposit successful (DEV MODE)",
       new_balance: wallet.balance
     });
 
@@ -65,7 +86,7 @@ exports.manualDeposit = async (req, res) => {
 
 
 // ------------------------------------------------------
-// NEW: GET FULL WALLET OBJECT
+// GET FULL WALLET OBJECT
 // ------------------------------------------------------
 exports.getWallet = async (req, res) => {
   try {
