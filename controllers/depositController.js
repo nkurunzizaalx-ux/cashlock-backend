@@ -72,9 +72,6 @@ exports.initiateDeposit = async (req, res) => {
 
     const env = process.env.MTN_ENV || "sandbox";
     const subscriptionKey = process.env.MTN_COLLECTION_KEY;
-    const callbackUrl =
-      process.env.MTN_COLLECTION_CALLBACK_URL ||
-      "http://localhost:3000/momo-callback/deposit/callback";
 
     const baseUrl =
       env === "sandbox"
@@ -107,8 +104,8 @@ exports.initiateDeposit = async (req, res) => {
         "X-Reference-Id": referenceId,
         "X-Target-Environment": env,
         "Ocp-Apim-Subscription-Key": subscriptionKey,
-        "Content-Type": "application/json",
-        "X-Callback-Url": callbackUrl,
+        "Content-Type": "application/json"
+        // ❌ Removed X-Callback-Url to avoid INVALID_CALLBACK_URL_HOST
       },
     });
 
