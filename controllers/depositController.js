@@ -6,8 +6,6 @@ const Transaction = require("../models/Transaction");
 
 /**
  * Helper: Get MTN Collections Access Token
- * Uses the SAME MTN_API_USER and MTN_API_KEY that you already use for withdrawals.
- * Does NOT change any existing behavior.
  */
 async function getCollectionsToken() {
   try {
@@ -54,20 +52,6 @@ async function getCollectionsToken() {
 
 /**
  * POST /api/deposit/initiate
- *
- * Body:
- * {
- *   "userId": "...",
- *   "amount": 5000,
- *   "phone": "2507XXXXXXXX"   // MSISDN in international format
- * }
- *
- * This only STARTS the deposit:
- * - Creates a Transaction with type "deposit" and status PENDING
- * - Sends RequestToPay to MTN
- * - Returns referenceId to the frontend
- *
- * Wallet balance will be updated later in the callback controller.
  */
 exports.initiateDeposit = async (req, res) => {
   try {
@@ -98,16 +82,16 @@ exports.initiateDeposit = async (req, res) => {
         : "https://momodeveloper.mtn.com";
 
     // Generate IDs
-    const externalId = uuidv4(); // For your own tracking
-    const referenceId = uuidv4(); // Used as X-Reference-Id and to match callback
+    const externalId = uuidv4();
+    const referenceId = uuidv4();
 
     // 1) Get access token for Collections
     const accessToken = await getCollectionsToken();
 
-    // 2) Call MTN RequestToPay
+    // 2) Call MTN RequestToPay (SANDBOX REQUIRES EUR)
     const requestBody = {
       amount: amount.toString(),
-      currency: "RWF", // Keep same as your app currency
+      currency: "EUR", // ⭐ MTN SANDBOX ONLY SUPPORTS EUR FOR COLLECTIONS
       externalId: externalId,
       payer: {
         partyIdType: "MSISDN",
@@ -124,24 +108,24 @@ exports.initiateDeposit = async (req, res) => {
         "X-Target-Environment": env,
         "Ocp-Apim-Subscription-Key": subscriptionKey,
         "Content-Type": "application/json",
-        "X-Callback-Url": callbackUrl, // Some setups use this; if ignored, no issue
+        "X-Callback-Url": callbackUrl,
       },
     });
 
-    // 3) Create Transaction with PENDING status
+    // 3) Create Transaction (stored as EUR for sandbox)
     await Transaction.create({
       userId,
       type: "deposit",
       amount,
-      currency: "RWF",
+      currency: "EUR", // ⭐ MUST MATCH REQUEST BODY
       externalId,
       referenceId,
       momo_status: "PENDING",
     });
 
-    // 4) Respond to frontend with referenceId
+    // 4) Respond with referenceId
     return res.status(200).json({
-      message: "Deposit initiated. Please approve the MoMo prompt on your phone.",
+      message: "Deposit initiated successfully in sandbox.",
       referenceId,
     });
   } catch (error) {
