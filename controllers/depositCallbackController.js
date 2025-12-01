@@ -20,7 +20,7 @@ const Wallet = require("../models/Wallet");
  */
 exports.handleDepositCallback = async (req, res) => {
   try {
-    const referenceId = req.params.referenceId; // UUID for matching
+    const referenceId = req.params.referenceId;
     const payload = req.body;
 
     console.log("📩 Deposit callback received:", payload);
@@ -61,16 +61,17 @@ exports.handleDepositCallback = async (req, res) => {
     transaction.failure_reason = null;
     await transaction.save();
 
-    // Find wallet
-    const wallet = await Wallet.findOne({ userId: transaction.userId });
+    // 🔥 FIXED: wallet lookup must use field "user"
+    const wallet = await Wallet.findOne({ user: transaction.userId });
 
     if (!wallet) {
       console.error("❌ Wallet not found for user:", transaction.userId);
       return res.status(500).json({ message: "Wallet not found" });
     }
 
-    // Add deposit amount
+    // 6️⃣ Add deposit amount
     wallet.balance += transaction.amount;
+    wallet.last_transaction_at = new Date();
     await wallet.save();
 
     console.log("💰 Wallet updated after deposit:", wallet.balance);

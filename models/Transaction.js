@@ -9,7 +9,7 @@ const TransactionSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ["deposit", "lock", "unlock", "withdraw", "topup"], // ⭐ FIXED
+    enum: ["deposit", "lock", "unlock", "withdraw", "topup"],
     required: true
   },
 
@@ -31,9 +31,16 @@ const TransactionSchema = new mongoose.Schema({
     type: String
   },
 
+  // ⭐ FIXED: Default MUST be "PENDING" so deposit callback can update it
   momo_status: {
     type: String,
-    default: "SUCCESSFUL"
+    enum: ["PENDING", "SUCCESSFUL", "FAILED"],
+    default: "PENDING"
+  },
+
+  failure_reason: {
+    type: String,
+    default: null
   },
 
   planId: {
