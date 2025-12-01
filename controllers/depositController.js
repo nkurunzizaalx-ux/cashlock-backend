@@ -1,69 +1,121 @@
-// controllers/depositCallbackController.js
+// controllers/depositController.js
 
+const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
 const Transaction = require("../models/Transaction");
-const Wallet = require("../models/Wallet");
 
-exports.handleDepositCallback = async (req, res) => {
+/**
+ * Helper: Get MTN Collections Access Token
+ */
+async function getCollectionsToken() {
   try {
-    const referenceId = req.params.referenceId;
-    const payload = req.body;
+    const apiUser = process.env.MTN_API_USER;
+    const apiKey = process.env.MTN_API_KEY;
+    const subscriptionKey = process.env.MTN_COLLECTION_KEY;
+    const env = process.env.MTN_ENV || "sandbox";
 
-    console.log("📩 Deposit callback received:", payload);
+    const baseUrl =
+      env === "sandbox"
+        ? "https://sandbox.momodeveloper.mtn.com"
+        : "https://momodeveloper.mtn.com";
 
-    if (!referenceId) {
-      return res.status(400).json({ message: "Missing referenceId in callback URL" });
-    }
+    const tokenUrl = `${baseUrl}/collection/token/`;
 
-    // 1️⃣ Find transaction
-    const transaction = await Transaction.findOne({ referenceId });
+    const authHeader =
+      "Basic " + Buffer.from(`${apiUser}:${apiKey}`).toString("base64");
 
-    if (!transaction) {
-      return res.status(404).json({ message: "Transaction not found for callback" });
-    }
+    const response = await axios.post(
+      tokenUrl,
+      {},
+      {
+        headers: {
+          Authorization: authHeader,
+          "Ocp-Apim-Subscription-Key": subscriptionKey,
+        },
+      }
+    );
 
-    // 2️⃣ Prevent double processing
-    if (transaction.momo_status === "SUCCESSFUL") {
-      return res.status(200).json({ message: "Already processed" });
-    }
-
-    const status = payload.status?.toUpperCase() || "FAILED";
-
-    // 3️⃣ Handle failed payment
-    if (status !== "SUCCESSFUL") {
-      transaction.momo_status = status;
-      transaction.failure_reason = payload.reason || "Unknown MTN failure";
-      await transaction.save();
-
-      return res.status(200).json({ message: "Deposit marked as failed" });
-    }
-
-    // 4️⃣ SUCCESSFUL — Update transaction
-    transaction.momo_status = "SUCCESSFUL";
-    transaction.failure_reason = null;
-    await transaction.save();
-
-    // 5️⃣ Find wallet using CORRECT field (user instead of userId)
-    const wallet = await Wallet.findOne({ user: transaction.userId });
-
-    if (!wallet) {
-      console.error("❌ Wallet not found for user:", transaction.userId);
-      return res.status(500).json({ message: "Wallet not found" });
-    }
-
-    // 6️⃣ Update wallet balance
-    wallet.balance += transaction.amount;
-    await wallet.save();
-
-    console.log("💰 Wallet updated after deposit:", wallet.balance);
-
-    return res.status(200).json({ message: "Deposit processed successfully" });
-
+    return response.data.access_token;
   } catch (error) {
-    console.error("🔥 Error processing deposit callback:", error.message);
+    console.error("Error getting MTN Collections token:", error.message);
+    throw new Error("Failed to get MTN Collections token");
+  }
+}
+
+/**
+ * POST /api/deposit/initiate
+ */
+exports.initiateDeposit = async (req, res) => {
+  try {
+    const { userId, amount, phone } = req.body;
+
+    if (!userId || !amount || !phone) {
+      return res.status(400).json({
+        message: "userId, amount and phone are required",
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({
+        message: "Amount must be greater than zero",
+      });
+    }
+
+    const env = process.env.MTN_ENV || "sandbox";
+    const subscriptionKey = process.env.MTN_COLLECTION_KEY;
+
+    const baseUrl =
+      env === "sandbox"
+        ? "https://sandbox.momodeveloper.mtn.com"
+        : "https://momodeveloper.mtn.com";
+
+    const externalId = uuidv4();
+    const referenceId = uuidv4();
+
+    const accessToken = await getCollectionsToken();
+
+    const requestBody = {
+      amount: amount.toString(),
+      currency: "EUR", // sandbox currency only
+      externalId: externalId,
+      payer: {
+        partyIdType: "MSISDN",
+        partyId: phone,
+      },
+      payerMessage: "CashLock wallet deposit",
+      payeeNote: "CashLock deposit",
+    };
+
+    await axios.post(`${baseUrl}/collection/v1_0/requesttopay`, requestBody, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "X-Reference-Id": referenceId,
+        "X-Target-Environment": env,
+        "Ocp-Apim-Subscription-Key": subscriptionKey,
+        "Content-Type": "application/json"
+      },
+    });
+
+    await Transaction.create({
+      userId,
+      type: "deposit",
+      amount,
+      currency: "EUR",
+      externalId,
+      referenceId,
+      momo_status: "PENDING",
+    });
+
+    return res.status(200).json({
+      message: "Deposit initiated successfully in sandbox.",
+      referenceId,
+    });
+  } catch (error) {
+    console.error("Error initiating deposit:", error.response?.data || error.message);
 
     return res.status(500).json({
-      message: "Deposit callback error",
-      error: error.message
+      message: "Failed to initiate deposit",
+      error: error.response?.data || error.message,
     });
   }
 };
